@@ -1,0 +1,4 @@
+Testing SYNC DB connection...
+Connection established.
+Result: 1
+Sync Connection OK.

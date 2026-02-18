@@ -1,0 +1,4 @@
+Testing DB connection with NullPool...
+Session created.
+CONNECTION FAILED:
+connection was closed in the middle of operation

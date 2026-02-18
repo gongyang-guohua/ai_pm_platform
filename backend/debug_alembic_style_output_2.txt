@@ -1,0 +1,20 @@
+Mimicking Alembic...
+Traceback (most recent call last):
+  File "D:\ai_pm_platform\backend\debug_alembic_style.py", line 46, in <module>
+    asyncio.run(run_async_test())
+  File "D:\miniforge3\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "D:\miniforge3\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\miniforge3\Lib\asyncio\base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "D:\ai_pm_platform\backend\debug_alembic_style.py", line 29, in run_async_test
+    connectable = async_engine_from_config(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\miniforge3\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py", line 140, in async_engine_from_config
+    for key, value in configuration.items()
+                      ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'items'

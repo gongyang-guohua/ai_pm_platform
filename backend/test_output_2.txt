@@ -1,0 +1,13 @@
+Testing LLM Conneciton...
+Provider: google
+Sending request to Google Gemini (via google-genai SDK)...
+
+Response from Gemini:
+--------------------
+Hello! As an AI model trained by Google, I am fully compatible with the latest versions of the **Gemini API SDKs** (such as the `google-generativeai` Python library, the Node.js SDK, and the Vertex AI SDKs).
+
+If you are using the new SDK features¡ªsuch as **System Instructions**, **JSON Mode**, **Function Calling**, or **Controlled Generation (Schema)**¡ªI am designed to support and follow those parameters.
+
+Are you working on a specific implementation or running into an issue with one of the new SDK features? I'd be happy to help you with code snippets or troubleshooting.
+--------------------
+Connection Successful!

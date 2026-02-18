@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "D:\ai_pm_platform\backend\debug_alembic_style.py", line 17, in <module>
+    config = context.config
+             ^^^^^^^^^^^^^^
+AttributeError: module 'alembic.context' has no attribute 'config'. Did you mean: 'configure'?

@@ -1,0 +1,26 @@
+<Project xmlns="http://schemas.microsoft.com/project">
+    <Name>Test Dependencies</Name>
+    <Tasks>
+        <Task>
+            <UID>1</UID>
+            <ID>1</ID>
+            <Name>Task A</Name>
+            <Start>2023-01-01T08:00:00</Start>
+            <Finish>2023-01-05T17:00:00</Finish>
+        </Task>
+        <Task>
+            <UID>2</UID>
+            <ID>2</ID>
+            <Name>Task B</Name>
+            <Start>2023-01-06T08:00:00</Start>
+            <Finish>2023-01-10T17:00:00</Finish>
+            <PredecessorLink>
+                <PredecessorUID>1</PredecessorUID>
+                <Type>1</Type>
+                <CrossProject>0</CrossProject>
+                <LinkLag>0</LinkLag>
+                <LagFormat>7</LagFormat>
+            </PredecessorLink>
+        </Task>
+    </Tasks>
+</Project>
