@@ -1,0 +1,69 @@
+
+> frontend@0.1.0 dev
+> next dev
+
+鈻?Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.14.0.2:3000
+- Environments: .env.local
+
+鉁?Starting...
+鉁?Ready in 1143ms
+ GET / 200 in 952ms (compile: 738ms, render: 214ms)
+鈿?Cross origin request detected from 127.0.0.1 to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+鉁?Compiled in 111ms
+鉁?Compiled in 44ms
+  Reload env: .env.local
+鉁?Compiled in 22ms
+ GET / 200 in 113ms (compile: 53ms, render: 61ms)
+ GET / 200 in 98ms (compile: 3ms, render: 95ms)
+ GET / 200 in 39ms (compile: 3ms, render: 36ms)
+ GET / 200 in 39ms (compile: 3ms, render: 36ms)
+ GET / 200 in 39ms (compile: 3ms, render: 36ms)
+ GET / 200 in 44ms (compile: 3ms, render: 42ms)
+ GET / 200 in 43ms (compile: 4ms, render: 39ms)
+ GET / 200 in 40ms (compile: 4ms, render: 35ms)
+ GET / 200 in 45ms (compile: 4ms, render: 41ms)
+鉁?Compiled in 162ms
+鉁?Compiled in 87ms
+鉁?Compiled in 69ms
+鉁?Compiled in 34ms
+鉁?Compiled in 61ms
+鉁?Compiled in 49ms
+ GET / 200 in 257ms (compile: 99ms, render: 158ms)
+ GET / 200 in 44ms (compile: 3ms, render: 40ms)
+ GET / 200 in 39ms (compile: 3ms, render: 36ms)
+ GET / 200 in 40ms (compile: 3ms, render: 37ms)
+ GET / 200 in 44ms (compile: 3ms, render: 41ms)
+鉁?Compiled in 111ms
+鉁?Compiled in 68ms
+鉁?Compiled in 59ms
+鉁?Compiled in 57ms
+鉁?Compiled in 62ms
+ GET / 200 in 221ms (compile: 97ms, render: 124ms)
+ GET / 200 in 44ms (compile: 3ms, render: 41ms)
+鉁?Compiled in 62ms
+鉁?Compiled in 35ms
+鉁?Compiled in 36ms
+鉁?Compiled in 47ms
+鉁?Compiled in 102ms
+ GET / 200 in 213ms (compile: 95ms, render: 118ms)
+鉁?Compiled in 62ms
+鉁?Compiled in 49ms
+ GET / 200 in 262ms (compile: 111ms, render: 151ms)
+鉁?Compiled in 82ms
+ GET / 200 in 211ms (compile: 82ms, render: 129ms)
+鉁?Compiled in 38ms
+鉁?Compiled in 105ms
+鉁?Compiled in 55ms
+ GET / 200 in 195ms (compile: 78ms, render: 117ms)
+ GET / 200 in 49ms (compile: 5ms, render: 44ms)
+ GET / 200 in 48ms (compile: 4ms, render: 44ms)
+ GET / 200 in 63ms (compile: 3ms, render: 59ms)
+ GET / 200 in 54ms (compile: 4ms, render: 50ms)
+ GET / 200 in 62ms (compile: 3ms, render: 58ms)
+  Reload env: .env.local
+鉁?Compiled in 137ms
+ GET / 200 in 272ms (compile: 224ms, render: 48ms)
+ GET / 200 in 160ms (compile: 3ms, render: 157ms)

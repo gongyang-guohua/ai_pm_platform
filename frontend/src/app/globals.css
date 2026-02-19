@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #52525b;
+  /* Darker than 71717a for better contrast */
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #18181b;
+  --radius: 0.5rem;
+  --chart-1: #f97316;
+  --chart-2: #eab308;
+  --chart-3: #22c55e;
+  --chart-4: #3b82f6;
+  --chart-5: #a855f7;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #09090b;
+  --card-foreground: #fafafa;
+  --popover: #09090b;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #d4d4d8;
+  /* Brighter than a1a1aa for better contrast in dark mode */
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --destructive: #7f1d1d;
+  --destructive-foreground: #fafafa;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #d4d4d8;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/20;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-size: 14px;
+    /* Increased from 13px */
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Custom Bloomberg/Modern PM Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  opacity: 0.8;
+  border-radius: 10px;
+  border: 4px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground);
+  opacity: 1;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+/* AG Grid Dark Theme Overrides */
+.ag-theme-quartz-dark,
+.ag-theme-legacy-dark {
+  --ag-background-color: var(--background) !important;
+  --ag-header-background-color: color-mix(in srgb, var(--muted), transparent 50%) !important;
+  --ag-border-color: var(--border) !important;
+  --ag-row-border-color: var(--border) !important;
+  --ag-odd-row-background-color: var(--background) !important;
+  --ag-control-panel-background-color: var(--background) !important;
+  --ag-selected-row-background-color: color-mix(in srgb, var(--primary), transparent 85%) !important;
+  --ag-font-family: inherit !important;
+  --ag-font-size: 13px !important;
+  --ag-row-height: 42px !important;
+  --ag-header-height: 48px !important;
+}
+
+/* Light Mode Specific Grid Text Contrast */
+:root:not(.dark) .ag-theme-quartz-dark,
+:root:not(.dark) .ag-theme-legacy-dark,
+.ag-theme-quartz:not(.dark) {
+  --ag-data-color: #000000 !important;
+  --ag-header-foreground-color: #000000 !important;
+}
+
+/* Specifically target WBS and Title columns if needed via cell class if possible, 
+   but forcing all data color to black in light mode is safer. */
+:root:not(.dark) .ag-cell {
+  color: #000000 !important;
+  font-weight: 500;
+}
