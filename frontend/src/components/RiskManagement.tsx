@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { AlertTriangle, ShieldAlert, Plus, Save, Trash2, X } from "lucide-react";
+import React, { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, ShieldAlert, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import axios from 'axios';
 
@@ -21,7 +21,7 @@ interface RiskManagementProps {
     tasks: any[];
 }
 
-export default function RiskManagement({ projectId, tasks }: RiskManagementProps) {
+export default function RiskManagement({ projectId }: RiskManagementProps) {
     const [risks, setRisks] = useState<Risk[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
@@ -36,7 +36,7 @@ export default function RiskManagement({ projectId, tasks }: RiskManagementProps
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
 
-    const fetchRisks = async () => {
+    const fetchRisks = useCallback(async () => {
         try {
             const res = await axios.get(`${apiUrl}/risks/${projectId}`);
             setRisks(res.data);
@@ -45,11 +45,11 @@ export default function RiskManagement({ projectId, tasks }: RiskManagementProps
         } finally {
             setLoading(false);
         }
-    };
+    }, [apiUrl, projectId]);
 
     useEffect(() => {
         fetchRisks();
-    }, [projectId]);
+    }, [fetchRisks]);
 
     const handleCreateRisk = async () => {
         try {

@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from app.models.project import Project, Task, Material
 from app.core.database import get_db
 from app.core.llm import llm_service
+from app.services.evm_service import EVMService
 from typing import Dict, Any
 
 router = APIRouter()
@@ -12,67 +13,29 @@ router = APIRouter()
 @router.get("/projects/{project_id}/stats")
 async def get_project_stats(project_id: int, db: AsyncSession = Depends(get_db)):
     """
-    Get consolidated performance stats for a project.
+    Get consolidated performance stats for a project using Professional EVM.
     """
-    # Fetch project with tasks and materials
-    stmt = (
-        select(Project)
-        .where(Project.id == project_id)
-        .options(selectinload(Project.tasks).selectinload(Task.materials))
-    )
-    result = await db.execute(stmt)
-    project = result.scalars().first()
-    
+    project = await db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Calculate EVA metrics
-    # PV (Planned Value) = Original Duration * rate
-    # AC (Actual Cost) = Actual Cost field
-    # EV (Earned Value) = Earned Value field or calculated
+    # Use Professional EVM Service
+    evm_svc = EVMService(db)
+    evm_metrics = await evm_svc.calculate_project_metrics(project_id)
     
-    rate = 100.0 # Standard hourly rate for calculation
-    
-    pv = sum(t.planned_value or (t.original_duration or 0) * rate for t in project.tasks)
-    
-    # AC is directly tracked or calculated
-    ac_materials = sum(sum(m.total_price or 0 for m in (t.materials or [])) for t in project.tasks)
-    
-    # If actual_cost is stored on task, use it. Otherwise approximate from duration?
-    # We will use the 'actual_cost' field on Task which we added.
-    ac = sum(t.actual_cost or 0 for t in project.tasks)
-    # If actual_cost is 0, maybe try to calculate from materials + implied labor?
-    if ac == 0 and ac_materials > 0:
-        ac = ac_materials # simplified
-        
-    ev = sum(t.earned_value or 0 for t in project.tasks)
-    
-    # Fallback for EV if not explicitly calculated in backend yet
-    if ev == 0:
-         ev = sum((t.original_duration or 0) * rate for t in project.tasks if t.status == 'completed')
-
-    spi = ev / pv if pv > 0 else 1.0
-    cpi = ev / ac if ac > 0 else 1.0
+    # Task status distribution remains relevant
+    stmt = select(Task).where(Task.project_id == project_id)
+    result = await db.execute(stmt)
+    tasks = result.scalars().all()
     
     return {
         "project_id": project_id,
-        "performance": {
-            "spi": spi,
-            "cpi": cpi,
-            "pv": pv,
-            "ev": ev,
-            "ac": ac,
-        },
+        "performance": evm_metrics,
         "task_summary": {
-            "total": len(project.tasks),
-            "completed": len([t for t in project.tasks if t.status == 'completed']),
-            "in_progress": len([t for t in project.tasks if t.status == 'in_progress']),
-            "stalled": len([t for t in project.tasks if t.status == 'stalled']),
-        },
-        "cost_summary": {
-            "materials": ac_materials,
-            "labor": ac - ac_materials,
-            "total": ac
+            "total": len(tasks),
+            "completed": len([t for t in tasks if t.status == 'completed']),
+            "in_progress": len([t for t in tasks if t.status == 'in_progress']),
+            "stalled": len([t for t in tasks if t.status == 'stalled']),
         }
     }
 

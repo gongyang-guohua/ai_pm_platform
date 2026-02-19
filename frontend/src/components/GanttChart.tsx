@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Gantt, Task, ViewMode } from 'gantt-task-react';
 import "gantt-task-react/dist/index.css";
 import { cn } from "@/lib/utils";
@@ -29,10 +29,27 @@ interface ProjectTask {
     outline_level?: number;
 }
 
-export default function GanttChart({ tasks }: { tasks: ProjectTask[] }) {
+export default function GanttChart({ tasks, onEditTask }: { tasks: ProjectTask[], onEditTask?: (task: any) => void }) {
     const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Month);
     const [isChecked, setIsChecked] = useState(true);
     const [isQuarter, setIsQuarter] = useState(false);
+
+    // Theme Detection Hook
+    const useTheme = () => {
+        const [isDark, setIsDark] = useState(true); // Default to dark as per layout
+        useEffect(() => {
+            const updateTheme = () => setIsDark(document.documentElement.classList.contains('dark'));
+            updateTheme(); // Initial check
+
+            const observer = new MutationObserver(updateTheme);
+            observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+            return () => observer.disconnect();
+        }, []);
+        return isDark;
+    };
+
+    const isDark = useTheme();
 
     if (!tasks || tasks.length === 0) {
         return <div className="p-10 text-center text-muted-foreground">No tasks available for Gantt Chart.</div>;
@@ -46,21 +63,98 @@ export default function GanttChart({ tasks }: { tasks: ProjectTask[] }) {
         // Ensure end > start
         if (end <= start) end.setTime(start.getTime() + 3600 * 1000);
 
+        // Determine Task Type and Styles based on Hierarchy and Theme
+        // Dark Mode: Background Dark -> Bars should be Light/Contrast
+        // Light Mode: Background Light -> Bars should be Dark/Contrast
+
+        let type: 'task' | 'milestone' | 'project' = 'task';
+
+        // Default Colors (Will be overridden)
+        let progressColor = '#4b5563';
+        let backgroundColor = '#f3f4f6';
+        let backgroundSelectedColor = '#e5e7eb';
+
+        const level = t.outline_level || 1;
+
+        if (isDark) {
+            // DARK THEME PALETTE (Background is Dark)
+            // Bars should be lighter to stand out
+            // Progress (Filled) should be distinct from Planned (Empty/Background of bar)
+
+            if (t.task_type === 'milestone') {
+                // Milestones: Gold/Bright
+                progressColor = '#fcd34d'; // Amber-300
+                backgroundColor = '#fcd34d';
+                backgroundSelectedColor = '#fbbf24';
+            } else if (t.is_summary) {
+                // Summary: Bright/White Bracket
+                progressColor = '#e5e7eb'; // Gray-200
+                backgroundColor = '#e5e7eb';
+                backgroundSelectedColor = '#ffffff';
+            } else if (t.status === 'completed') {
+                progressColor = '#10b981'; // Emerald-500 (Keep green as it's universal)
+                backgroundColor = '#064e3b'; // Dark Emerald Background
+                backgroundSelectedColor = '#065f46';
+            } else {
+                // Standard Tasks: Grayscale
+                // Planned (Bar Background): Darker Gray
+                // Progress (Filled): Lighter/White
+
+                // Level differentiation (Subtle)
+                backgroundColor = level === 1 ? '#374151' : level === 2 ? '#4b5563' : '#6b7280'; // Bar BG
+                backgroundSelectedColor = level === 1 ? '#4b5563' : level === 2 ? '#6b7280' : '#9ca3af';
+                progressColor = '#e5e7eb'; // Progress is bright
+            }
+        } else {
+            // LIGHT THEME PALETTE (Background is Light)
+            // Bars should be darker
+
+            if (t.task_type === 'milestone') {
+                progressColor = '#000000'; // Black
+                backgroundColor = '#000000';
+                backgroundSelectedColor = '#333333';
+            } else if (t.is_summary) {
+                progressColor = '#000000';
+                backgroundColor = '#000000';
+                backgroundSelectedColor = '#333333';
+            } else if (t.status === 'completed') {
+                progressColor = '#059669'; // Emerald-600
+                backgroundColor = '#d1fae5'; // Light Emerald
+                backgroundSelectedColor = '#a7f3d0';
+            } else {
+                // Standard Tasks: Grayscale inverse
+                // Planned (Bar Background): Light Gray
+                // Progress (Filled): Dark/Black
+
+                backgroundColor = level === 1 ? '#e5e7eb' : level === 2 ? '#d1d5db' : '#9ca3af';
+                backgroundSelectedColor = level === 1 ? '#d1d5db' : level === 2 ? '#9ca3af' : '#6b7280';
+                progressColor = '#1f2937'; // Progress is dark
+            }
+        }
+
+        if (t.task_type === 'milestone') type = 'milestone';
+        else if (t.is_summary) type = 'project';
+
         return {
             start: start,
             end: end,
             name: t.title,
             id: t.id.toString(),
-            type: t.task_type === 'milestone' ? 'milestone' : 'task',
+            type: type,
             progress: t.status === 'completed' ? 100 : t.status === 'in_progress' ? 50 : 0,
             isDisabled: false,
             styles: {
-                progressColor: t.status === 'completed' ? '#10b981' : '#3b82f6',
-                progressSelectedColor: '#2563eb',
+                progressColor: progressColor,
+                progressSelectedColor: progressColor, // Keep same when selected
+                backgroundColor: backgroundColor,
+                backgroundSelectedColor: backgroundSelectedColor,
             },
-            dependencies: t.dependencies?.map(d => d.target_id.toString()),
-            project: t.project_id?.toString()
-        };
+            // Deduplicate dependencies to avoid Gantt key collision errors (Arrow from X to Y)
+            dependencies: Array.from(new Set(t.dependencies?.map(d => d.target_id.toString()) || [])),
+            project: t.project_id?.toString(),
+            // Store original task data for editing
+            originalTask: t
+        } as Task & { originalTask: ProjectTask };
     });
 
     const handleTaskChange = (task: Task) => {
@@ -72,7 +166,11 @@ export default function GanttChart({ tasks }: { tasks: ProjectTask[] }) {
     };
 
     const handleDblClick = (task: Task) => {
-        console.log("On Double Click", task);
+        // @ts-ignore
+        if (onEditTask && task.originalTask) {
+            // @ts-ignore
+            onEditTask(task.originalTask);
+        }
     };
 
     const handleSelect = (_task: Task, isSelected: boolean) => {
@@ -120,132 +218,105 @@ export default function GanttChart({ tasks }: { tasks: ProjectTask[] }) {
 
             <div className="flex-1 overflow-auto bg-background gantt-container">
                 <style jsx global>{`
-                    /* General Gantt Container Fixes */
+                    /* --- ClickUp Inspired Gantt Minimalist Theme --- */
+                    
                     .gantt-container {
                         background-color: var(--background) !important;
                         color: var(--foreground) !important;
+                        font-family: inherit;
+                        border: none !important;
                     }
 
-                    /* WBS List Area - Coordinate with background */
+                    /* 1. WBS List Area - Clean & Single Color */
                     .gantt-container ._3af_6 { 
                         background-color: var(--background) !important; 
                         color: var(--foreground) !important; 
-                        border-right: 1px solid var(--border) !important; /* Region Separator Vertical Line */
-                        font-weight: 700;
-                        font-family: inherit;
-                        display: flex;
-                        align-items: center;
+                        border-right: 1px solid var(--border) !important;
+                        border-bottom: 1px solid var(--border) !important;
+                        font-weight: 500;
+                    }
+                    
+                    /* Remove Zebra Striping - force all rows to match background */
+                    .gantt-container ._3af_6:nth-child(even),
+                    .gantt-container ._3af_6:nth-child(odd) {
+                        background-color: var(--background) !important;
                     }
 
-                    /* Header / Timeline Cells */
+                    /* 2. Header / Timeline Cells */
                     .gantt-container ._2uS_8 { 
-                        background-color: var(--background) !important; /* Changed from muted to sync background */
+                        background-color: var(--muted) !important; 
                         color: var(--muted-foreground) !important; 
                         border-bottom: 1px solid var(--border) !important;
                         border-right: 1px solid var(--border) !important;
+                        text-transform: uppercase;
+                        font-size: 10px;
+                        font-weight: 700;
+                        letter-spacing: 0.05em;
                     }
 
-                    /* Grid Lines / Zebra Striping */
+                    /* 3. Main Chart Background - No coord/dark uncoordinated blocks */
+                    .gantt-container ._2rB_5 { 
+                        fill: var(--background) !important; 
+                    }
                     .gantt-container ._3_h_6 { 
-                        border-bottom: 1px solid var(--border) !important; 
-                        border-right: 1px solid var(--border) !important; 
+                        fill: var(--background) !important; 
+                        border-bottom: 1px solid var(--border) !important;
+                    }
+
+                    /* 4. Grid Lines - Minimalist & Low Contrast */
+                    .gantt-container ._1_h_6 { 
+                        fill: var(--border) !important;
+                        opacity: 0.3; /* Make grid lines very subtle like ClickUp */
                     }
                     
-                    /* SVG Grid Line colors for dark mode context */
-                    [data-theme='dark'] .gantt-container ._1_h_6 { fill: #1a1a1e !important; }
-                    [data-theme='dark'] .gantt-container ._2rB_5 { fill: #09090b !important; }
-                    [data-theme='dark'] .gantt-container ._3_h_6 { fill: #09090b !important; }
-
-                    /* Timeline Text Label */
-                    .gantt-container ._278_3 { 
-                        fill: var(--muted-foreground) !important; 
-                        font-weight: 800; 
-                        font-size: 10px; 
-                        text-transform: uppercase; 
-                        letter-spacing: 0.1em;
+                    /* Vertical lines across tasks */
+                    .gantt-container line {
+                        stroke: var(--border) !important;
+                        stroke-opacity: 0.2;
                     }
 
-                    /* Task Bar Label Text - Critical for contrast */
+                    /* 5. Timeline Text Label */
+                    .gantt-container ._278_3 { 
+                        fill: var(--muted-foreground) !important; 
+                        font-weight: 600; 
+                    }
+
+                    /* 6. Task Bar Label Text - High Contrast */
                     .gantt-container ._3shz- {
                         fill: var(--foreground) !important;
-                        font-weight: 800 !important;
+                        font-weight: 600 !important;
                         font-size: 11px !important;
                     }
 
-                    /* SVG Backgrounds */
-                    .gantt-container ._3eS_5 { fill: var(--muted) !important; } /* Today highlight */
-                    .gantt-container ._1_h_6 { fill: var(--border) !important; } /* Grid lines fill */
-                    .gantt-container ._2rB_5 { fill: var(--background) !important; } /* Main chart background */
-                    .gantt-container ._3_h_6 { fill: var(--background) !important; } /* Ensure grid area background matches */
-                    
-                    /* Tooltip Styling */
+                    /* 7. Tooltip - Modern Overlay */
                     .gantt-container ._3m_7S {
                         background-color: var(--popover) !important;
                         color: var(--popover-foreground) !important;
                         border: 1px solid var(--border) !important;
                         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-                        border-radius: 0 !important;
+                        border-radius: 4px !important;
+                        padding: 8px !important;
                     }
                     
-                    /* Enforce text contrast based on theme */
-                    :root {
-                        --gantt-text: var(--foreground);
-                    }
-                    
-                    [data-theme='light'] .gantt-container ._3af_6,
-                    [data-theme='light'] .gantt-container ._3shz- {
-                        color: #000000 !important;
-                        fill: #000000 !important;
+                    /* 8. Today Highlight - Subtle Overlay */
+                    .gantt-container ._3eS_5 {
+                        fill: var(--primary) !important;
+                        fill-opacity: 0.05 !important;
                     }
 
-                    /* Dark Mode Zebra Striping & Text overrides */
-                    [data-theme='dark'] .gantt-container ._3af_6,
-                    [data-theme='dark'] .gantt-container ._3shz- {
-                        color: #ffffff !important;
-                        fill: #ffffff !important;
+                    /* 9. Dark Mode Nuclear Overrides - Ensure no white text on light gray issues */
+                    [data-theme='dark'] .gantt-container text {
+                        fill: #E4E4E7 !important; /* Zinc-200 */
                     }
-
-                    /* NUCLEAR OVERRIDE for Gantt Dark Mode */
-                    [data-theme='dark'] .gantt-container rect,
-                    [data-theme='dark'] .gantt-container path,
-                    [data-theme='dark'] .gantt-container circle,
-                    [data-theme='dark'] .gantt-container foreignObject,
-                    [data-theme='dark'] .gantt-container ._3af_6, 
-                    [data-theme='dark'] .gantt-container ._3af_6:nth-child(even),
-                    [data-theme='dark'] .gantt-container ._3af_6:nth-child(odd),
-                    [data-theme='dark'] .gantt-container ._2rB_5,
-                    [data-theme='dark'] .gantt-container ._3_h_6 {
-                        fill: var(--background) !important;
-                        background-color: var(--background) !important;
-                    }
-
-                    /* Force Text Color */
-                    [data-theme='dark'] .gantt-container text,
                     [data-theme='dark'] .gantt-container ._3af_6 {
-                         fill: #ffffff !important;
-                         color: #ffffff !important;
-                    }
-
-                    /* Keep Bars Colored (override the global rect override above for bars) */
-                    [data-theme='dark'] .gantt-container ._35nLX {
-                        fill: #3b82f6 !important; /* Blue for bars */
-                    }
-                    [data-theme='dark'] .gantt-container ._35nLX:hover {
-                         fill: #2563eb !important;
-                    }
-                    [data-theme='dark'] .gantt-container ._2eZzS {
-                        fill: #10b981 !important; /* Green for completed */
-                    }
-
-                    /* Grid Lines - subtle */
-                    [data-theme='dark'] .gantt-container ._1_h_6 {
-                        fill: #27272a !important; /* Zinc-900 line */
+                        color: #E4E4E7 !important;
+                        border-bottom-color: #27272A !important; /* Zinc-800 */
                     }
                     
-                    /* Today Highlight */
-                     [data-theme='dark'] .gantt-container ._3eS_5 {
-                        fill: rgba(255, 255, 255, 0.05) !important;
-                     }
+                    /* Ensure rects that act as task backgrounds are consistent */
+                    .gantt-container rect {
+                        shape-rendering: crispEdges;
+                    }
                 `}</style>
                 <Gantt
                     tasks={ganttTasks}

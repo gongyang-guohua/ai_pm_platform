@@ -27,8 +27,18 @@ async def create_task(task_in: TaskCreate, db: AsyncSession = Depends(get_db)):
     )
     db.add(db_task)
     await db.commit()
-    await db.refresh(db_task)
-    return db_task
+    
+    # Reload with relations for the response schema validation
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Task)
+        .filter(Task.id == db_task.id)
+        .options(
+            selectinload(Task.materials),
+            selectinload(Task.relationships_pred)
+        )
+    )
+    return result.scalars().first()
 
 @router.get("/{task_id}", response_model=TaskSchema)
 async def get_task(task_id: int, db: AsyncSession = Depends(get_db)):

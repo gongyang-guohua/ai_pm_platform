@@ -93,7 +93,7 @@ export default function ProjectNetworkView({ tasks }: ProjectNetworkViewProps) {
                 <div className="h-40 flex items-center justify-center">
                     <div className="w-full max-w-2xl flex justify-around items-end gap-1.5 h-16">
                         {Array(32).fill(0).map((_, i) => (
-                            <div key={i} className="bg-primary/40 w-0.5 rounded-t-full" style={{ height: `${20 + Math.random() * 80}%` }} />
+                            <div key={i} className="bg-primary/40 w-0.5 rounded-t-full" style={{ height: `${20 + ((i * 13) % 80)}%` }} />
                         ))}
                     </div>
                 </div>

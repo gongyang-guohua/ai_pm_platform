@@ -111,35 +111,33 @@ def _parse_xml(content: str) -> dict:
         or root.findall(".//Tasks/Task")
         or root.findall(".//Task")
         or root.findall(".//task")
+        or root.findall(".//row") # Generic row-based XML
     )
+
+    if not task_elements:
+        # Final attempt: search any tag containing 'task' regardless of depth or ns
+        task_elements = [el for el in root.iter() if 'task' in el.tag.lower() and len(el) > 0]
 
     tasks = []
 
     for te in task_elements:
-        name = _xml_text(te, f"{ns}Name") or _xml_text(te, "Name") or _xml_text(te, "name") or ""
+        name = _xml_text(te, f"{ns}Name", ["Name", "name", "Title", "title", "Task", "task", "Activity", "activity"]) or ""
         if not name.strip():
             continue
 
-        uid = _xml_text(te, f"{ns}UID") or _xml_text(te, "UID") or _xml_text(te, "uid") or ""
+        uid = _xml_text(te, f"{ns}UID", ["UID", "uid", "ID", "id"]) or ""
 
-        duration_str = _xml_text(te, f"{ns}Duration") or _xml_text(te, "Duration") or _xml_text(te, "duration") or "0"
+        duration_str = _xml_text(te, f"{ns}Duration", ["Duration", "duration", "hours", "EstimatedHours"]) or "0"
         est = _parse_duration(duration_str)
 
-        start_raw = (
-            _xml_text(te, f"{ns}Start") or _xml_text(te, "Start")
-            or _xml_text(te, "start") or None
-        )
-        end_raw = (
-            _xml_text(te, f"{ns}Finish") or _xml_text(te, "Finish")
-            or _xml_text(te, "finish") or _xml_text(te, f"{ns}End")
-            or _xml_text(te, "End") or _xml_text(te, "end") or None
-        )
+        start_raw = _xml_text(te, f"{ns}Start", ["Start", "start", "PlannedStart", "Start_Date"])
+        end_raw = _xml_text(te, f"{ns}Finish", ["Finish", "finish", "End", "end", "PlannedFinish", "Finish_Date"])
 
-        milestone_flag = _xml_text(te, f"{ns}Milestone") or _xml_text(te, "Milestone") or "0"
+        milestone_flag = _xml_text(te, f"{ns}Milestone", ["Milestone", "milestone"]) or "0"
         
         # Hierarchy extraction
-        summary_flag = _xml_text(te, f"{ns}Summary") or _xml_text(te, "Summary") or "0"
-        outline_level = _xml_text(te, f"{ns}OutlineLevel") or _xml_text(te, "OutlineLevel") or "1"
+        summary_flag = _xml_text(te, f"{ns}Summary", ["Summary", "summary", "is_summary"]) or "0"
+        outline_level = _xml_text(te, f"{ns}OutlineLevel", ["OutlineLevel", "level"]) or "1"
         try:
             outline_level = int(float(outline_level))
         except:
@@ -275,9 +273,19 @@ def _parse_duration(val: str) -> float:
     return _safe_float(val)
 
 
-def _xml_text(el, tag: str) -> Optional[str]:
-    child = el.find(tag)
-    return child.text if child is not None and child.text else None
+def _xml_text(el, tag: str, alternatives: Optional[List[str]] = None) -> Optional[str]:
+    """Find a tag or its alternatives and return text, stripped of whitespace."""
+    tags = [tag] + (alternatives or [])
+    for t in tags:
+        child = el.find(t)
+        if child is not None and child.text:
+            return child.text.strip()
+    # Case-insensitive fallback for direct children
+    tag_lower = tag.lower()
+    for child in el:
+        if child.tag.split('}')[-1].lower() == tag_lower:
+            return child.text.strip() if child.text else None
+    return None
 
 
 # ---------- Endpoint ----------

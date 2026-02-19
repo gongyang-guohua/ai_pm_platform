@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" style={{ colorScheme: 'dark' }}>
-      <body className="antialiased overflow-hidden">
+      <body className="antialiased overflow-hidden" suppressHydrationWarning>
         {children}
       </body>
     </html>

@@ -1,15 +1,18 @@
+import sys
+import asyncio
+
+# Windows 兼容性补丁 / Windows Compatibility Patch
+# 必须在任何数据库驱动初始化之前执行 / Must run before any DB driver initialization
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.api import api_router
 from fastapi.responses import JSONResponse
 from fastapi import Request
-import sys
-import asyncio
 
-# Fix for asyncpg on Windows
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 print(f"DEBUG: Loaded DATABASE_URL scheme: {settings.DATABASE_URL.split('://')[0]}")
 print(f"DEBUG: Google API Key Present: {'Yes' if settings.GOOGLE_API_KEY else 'No'}")

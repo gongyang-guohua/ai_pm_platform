@@ -1,20 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
 from app.models.project import Project
 from app.services.scheduling_engine import SchedulingEngine
 from datetime import datetime
+from typing import Optional
 
 router = APIRouter()
 
 @router.post("/{project_id}/schedule", status_code=status.HTTP_200_OK)
 async def run_schedule(
     project_id: int,
+    data_date: Optional[datetime] = Body(None, embed=True),
     db: AsyncSession = Depends(deps.get_db),
-    # current_user: User = Depends(deps.get_current_active_user) # Add auth if needed
 ):
     """
-    Run CPM Scheduling (Forward/Backward Pass) for the project.
+    Run Enhanced P6-style CPM Scheduling (Supports FS, SS, FF, SF, Lag).
     """
     project = await db.get(Project, project_id)
     if not project:
@@ -25,17 +26,19 @@ async def run_schedule(
     await engine.load_data()
     
     try:
-        # Determine Project Start Date
-        # Use existing start date or today
-        # In P6, "Data Date" is crucial. We'll assume Data Date = Today or Project Start.
-        start_date = datetime.now()
-        # TODO: Get Data Date from request body or project settings
+        # Use provided Data Date or current system time (UTC)
+        from datetime import timezone
+        start_date = data_date or datetime.now(timezone.utc)
         
         engine.calculate_dates(start_date)
         await engine.save_dates()
         await db.commit()
         
-        return {"message": "Schedule calculation completed successfully"}
+        return {
+            "message": "Schedule calculation completed successfully",
+            "data_date": start_date,
+            "project_id": project_id
+        }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

@@ -1,6 +1,7 @@
 import asyncio
 from app.core.database import Base, engine
 from app.models.project import Project, Task, Material, Blueprint
+from app.models.report import ProjectReport
 
 async def sync_db():
     print("Starting DB sync...")
@@ -14,4 +15,7 @@ async def sync_db():
     print("DB sync complete.")
 
 if __name__ == "__main__":
+    import sys
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(sync_db())

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, model_validator
+from typing import List, Optional, Any
 from datetime import datetime
 
 class RiskBase(BaseModel):
@@ -106,6 +106,20 @@ class Task(TaskBase):
     project_id: int
     actual_cost: Optional[float] = None
     materials: List[Material] = []
+
+    @model_validator(mode='after')
+    def map_dependencies(self) -> 'Task':
+        if hasattr(self, 'relationships_pred') and self.relationships_pred:
+            # Reconstruct dependencies from relationship objects
+            # relationships_pred is available if loaded via selectinload
+            self.dependencies = [
+                Dependency(
+                    target_id=r.predecessor_id,
+                    relation=r.type,
+                    lag=r.lag
+                ) for r in getattr(self, 'relationships_pred', [])
+            ]
+        return self
 
     class Config:
         from_attributes = True

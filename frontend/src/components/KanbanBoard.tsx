@@ -41,7 +41,16 @@ interface Task {
     status: string;
     priority?: string;
     estimated_hours: number;
+    // Add optional fields to match ProjectDetailView
+    task_type?: string;
+    planned_start?: string;
+    planned_end?: string;
+    actual_start?: string;
+    actual_end?: string;
+    responsible_party?: string;
     dependencies?: Dependency[];
+    // P6 Fields
+    original_duration?: number;
 }
 
 interface Column {
@@ -60,7 +69,10 @@ const columns: Column[] = [
 
 // --- Sortable Task Card ---
 
-function SortableTaskCard({ task, isOverlay }: { task: Task, isOverlay?: boolean }) {
+// --- Sortable Task Card ---
+import { Pencil } from "lucide-react";
+
+function SortableTaskCard({ task, isOverlay, onEditTask }: { task: Task, isOverlay?: boolean, onEditTask?: (task: Task) => void }) {
     const {
         attributes,
         listeners,
@@ -97,11 +109,28 @@ function SortableTaskCard({ task, isOverlay }: { task: Task, isOverlay?: boolean
             style={style}
             {...attributes}
             {...listeners}
+            onDoubleClick={(e) => {
+                e.stopPropagation();
+                if (onEditTask) onEditTask(task);
+            }}
             className={cn(
-                "bg-card border border-border p-3 hover:border-primary transition-colors cursor-grab active:cursor-grabbing group shadow-sm rounded-lg touch-none",
+                "bg-card border border-border p-3 hover:border-primary transition-colors cursor-grab active:cursor-grabbing group shadow-sm rounded-lg touch-none relative",
                 isOverlay ? "shadow-xl scale-105 border-primary ring-2 ring-primary/20 rotate-2 z-50" : ""
             )}
         >
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation(); // Prevent drag start
+                        if (onEditTask) onEditTask(task);
+                    }}
+                    className="p-1 hover:bg-muted rounded-md text-muted-foreground hover:text-primary"
+                    onPointerDown={(e) => e.stopPropagation()} // Prevent drag
+                >
+                    <Pencil className="w-3 h-3" />
+                </button>
+            </div>
+
             <div className="flex items-center justify-between mb-1">
                 <div className="text-[11px] font-mono text-muted-foreground font-bold">{task.wbs_code || `NODE-${task.id.toString().padStart(3, '0')}`}</div>
                 <span className={cn(
@@ -113,7 +142,7 @@ function SortableTaskCard({ task, isOverlay }: { task: Task, isOverlay?: boolean
                     {task.priority || 'MED'}
                 </span>
             </div>
-            <h4 className="text-[12px] font-bold uppercase tracking-tight leading-tight text-foreground">{task.title}</h4>
+            <h4 className="text-[12px] font-bold uppercase tracking-tight leading-tight text-foreground pr-4">{task.title}</h4>
             <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-2">
                 <span className="text-[9px] font-bold text-muted-foreground tabular-nums">{task.estimated_hours}H EST</span>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -127,7 +156,7 @@ function SortableTaskCard({ task, isOverlay }: { task: Task, isOverlay?: boolean
 
 // --- Kanban Column ---
 
-function KanbanColumn({ column, tasks }: { column: Column, tasks: Task[] }) {
+function KanbanColumn({ column, tasks, onEditTask }: { column: Column, tasks: Task[], onEditTask?: (task: Task) => void }) {
     const { setNodeRef } = useSortable({
         id: column.id,
         data: {
@@ -150,7 +179,7 @@ function KanbanColumn({ column, tasks }: { column: Column, tasks: Task[] }) {
                 <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                     <div className="flex flex-col gap-2 min-h-[50px]">
                         {tasks.map((task) => (
-                            <SortableTaskCard key={task.id} task={task} />
+                            <SortableTaskCard key={task.id} task={task} onEditTask={onEditTask} />
                         ))}
                     </div>
                 </SortableContext>
@@ -161,7 +190,7 @@ function KanbanColumn({ column, tasks }: { column: Column, tasks: Task[] }) {
 
 // --- Main Board Component ---
 
-export default function KanbanBoard({ tasks: initialTasks, onUpdateStatus }: { tasks: Task[], onUpdateStatus: (id: number, status: string) => void }) {
+export default function KanbanBoard({ tasks: initialTasks, onUpdateStatus, onEditTask }: { tasks: Task[], onUpdateStatus: (id: number, status: string) => void, onEditTask?: (task: Task) => void }) {
     const [activeId, setActiveId] = useState<number | null>(null);
     const [paramsTasks, setParamsTasks] = useState<Task[]>(initialTasks);
 

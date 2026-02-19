@@ -18,6 +18,8 @@ class Project(Base):
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
     blueprints = relationship("Blueprint", back_populates="project", cascade="all, delete-orphan")
     risks = relationship("Risk", back_populates="project", cascade="all, delete-orphan")
+    baselines = relationship("ProjectBaseline", back_populates="project", cascade="all, delete-orphan")
+    reports = relationship("ProjectReport", back_populates="project", cascade="all, delete-orphan")
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -53,13 +55,6 @@ class Task(Base):
     # New Fields for Engineering/Deliverables
     is_deliverable = Column(Boolean, default=False)
     discipline = Column(String, default="General") # General, Design, Procurement, Construction, Commissioning
-    
-    @property
-    def dependencies(self):
-        return [
-            {"target_id": r.predecessor_id, "relation": r.type, "lag": r.lag}
-            for r in self.relationships_pred
-        ]
     
     # Calendar & Duration
     original_duration = Column(Float, default=0.0) # Planned duration in hours/days

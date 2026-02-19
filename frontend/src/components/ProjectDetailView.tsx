@@ -1,28 +1,52 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import {
-    ArrowLeft, List, Kanban as KanbanIcon, GanttChartSquare, Package,
-    FileText, Calculator, Settings, Play, CheckCircle2,
-    Clock, AlertTriangle, MoreHorizontal, Pencil, Trash2, X, Calendar as CalendarIcon,
-    ChevronRight, Filter, Download, Plus
-} from "lucide-react";
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import ReactMarkdown from 'react-markdown';
+import { ArrowLeft, Calendar, FileText, LayoutList, GripHorizontal, List, CheckCircle2, Circle, AlertCircle, Clock, CalendarDays, ChevronRight, MoreHorizontal, Pencil, Trash2, Plus, GripVertical, Play, Kanban as KanbanIcon, GanttChartSquare, Network, ShieldAlert, Package, Calculator, Save, X, Filter, Download, Settings } from 'lucide-react';
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import axios from 'axios';
 import { AgGridReact } from 'ag-grid-react';
-import { ModuleRegistry, AllCommunityModule, ColDef, ValueFormatterParams, ValueGetterParams, ICellRendererParams } from 'ag-grid-community';
+import { ModuleRegistry, AllCommunityModule, ColDef, ICellRendererParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community';
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
-
 
 import KanbanBoard from './KanbanBoard';
 import GanttChart from './GanttChart';
 import RiskManagement from './RiskManagement';
 import ProjectNetworkView from './ProjectNetworkView';
 import CalendarView from './CalendarView';
-import { Calendar, Network, ShieldAlert } from "lucide-react";
-import { Button } from './ui/Button';
-import { Badge } from './ui/Badge';
+
+// --- Custom Editors ---
+// eslint-disable-next-line react/display-name
+const DateEditor = forwardRef((props: any, ref) => {
+    const [value, setValue] = useState(props.value ? props.value.split('T')[0] : '');
+    const refInput = useRef<HTMLInputElement>(null);
+
+    useImperativeHandle(ref, () => {
+        return {
+            getValue: () => {
+                return value; // Returns YYYY-MM-DD
+            },
+            afterGuiAttached: () => {
+                if (refInput.current) {
+                    refInput.current.focus();
+                }
+            }
+        };
+    });
+
+    return (
+        <input
+            type="date"
+            ref={refInput}
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            className="w-full h-full px-2 bg-background text-foreground border-none focus:outline-none"
+        />
+    );
+});
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -363,7 +387,7 @@ export default function ProjectDetailView({ projectId, onBack }: { projectId: nu
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
             const res = await axios.post(`${apiUrl}/reports/${projectId}/generate-summary`);
-            setReportContent(res.data.report || "No report generated.");
+            setReportContent(res.data.content || res.data.report || "No report generated.");
         } catch (err) {
             console.error("Failed to generate report", err);
             setReportContent("Error generating report. Please check the backend connection.");
@@ -532,8 +556,8 @@ export default function ProjectDetailView({ projectId, onBack }: { projectId: nu
         { field: 'status', headerName: 'Status', width: 120, cellRenderer: (params: ICellRendererParams) => <StatusBadge status={params.value} /> },
         { field: 'planned_start', headerName: 'Planned Start', width: 120, valueFormatter: (p: ValueFormatterParams) => p.value ? new Date(p.value).toLocaleDateString() : '' },
         { field: 'planned_end', headerName: 'Planned Finish', width: 120, valueFormatter: (p: ValueFormatterParams) => p.value ? new Date(p.value).toLocaleDateString() : '' },
-        { field: 'actual_start', headerName: 'Actual Start', width: 120, valueFormatter: (p: ValueFormatterParams) => p.value ? new Date(p.value).toLocaleDateString() : '' },
-        { field: 'actual_end', headerName: 'Actual Finish', width: 120, valueFormatter: (p: ValueFormatterParams) => p.value ? new Date(p.value).toLocaleDateString() : '' },
+        { field: 'actual_start', headerName: 'Actual Start', width: 120, editable: true, cellEditor: DateEditor, valueFormatter: (p: ValueFormatterParams) => p.value ? new Date(p.value).toLocaleDateString() : '' },
+        { field: 'actual_end', headerName: 'Actual Finish', width: 120, editable: true, cellEditor: DateEditor, valueFormatter: (p: ValueFormatterParams) => p.value ? new Date(p.value).toLocaleDateString() : '' },
         { field: 'original_duration', headerName: 'Dur (h)', width: 100, editable: true },
         {
             headerName: 'Predecessors',
@@ -673,62 +697,72 @@ export default function ProjectDetailView({ projectId, onBack }: { projectId: nu
                 <div className="p-6 min-h-full flex flex-col">
 
                     {activeTab === 'list' && (
-                        <div className="bg-background border border-border flex-1 flex flex-col ag-theme-quartz-dark shadow-sm min-h-[500px]">
-                            {/* AG Grid Container */}
-                            <div className="flex-1 w-full" style={{ height: '100%' }}>
-                                <AgGridReact
-                                    theme="legacy"
-                                    rowData={visibleTasks}
-                                    columnDefs={columnDefs}
-                                    onCellValueChanged={async (event) => {
-                                        try {
-                                            const field = event.colDef.field;
-                                            if (!field) return;
+                        <div className="bg-background border border-border shadow-sm h-[600px] w-full ag-theme-quartz-dark">
+                            <AgGridReact
+                                theme="legacy"
+                                rowData={visibleTasks}
+                                columnDefs={columnDefs}
+                                onCellValueChanged={async (event) => {
+                                    try {
+                                        const field = event.colDef.field;
+                                        if (!field) return;
 
-                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                            const updatedTask: any = {};
-                                            updatedTask[field] = event.newValue;
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                        const updatedTask: any = {};
 
-                                            // Auto-calc logic: If Duration or Start changes, update End
-                                            // Assuming original_duration is in DAYS (or standard units)
-                                            if (field === 'original_duration' || field === 'planned_start') {
-                                                const dur = field === 'original_duration' ? parseFloat(event.newValue) : event.data.original_duration;
-                                                const startStr = field === 'planned_start' ? event.newValue : event.data.planned_start;
-
-                                                if (dur && startStr) {
-                                                    const startDate = new Date(startStr);
-                                                    if (!isNaN(startDate.getTime())) {
-                                                        // Simple calc: Add hours to start date
-                                                        const endDate = new Date(startDate);
-                                                        endDate.setHours(endDate.getHours() + dur);
-                                                        updatedTask.planned_end = endDate.toISOString();
-
-                                                        // Update grid locally for immediate feedback
-                                                        event.node.setDataValue('planned_end', updatedTask.planned_end);
-                                                    }
+                                        // Handle Date Fields Specifically
+                                        const dateFields = ['planned_start', 'planned_end', 'actual_start', 'actual_end'];
+                                        if (dateFields.includes(field)) {
+                                            if (!event.newValue || event.newValue.trim() === '') {
+                                                updatedTask[field] = null;
+                                            } else {
+                                                const d = new Date(event.newValue);
+                                                if (!isNaN(d.getTime())) {
+                                                    updatedTask[field] = d.toISOString();
+                                                } else {
+                                                    // Invalid date format, might cause 422 if sent as is, 
+                                                    // but better to let backend validation handle or revert.
+                                                    updatedTask[field] = event.newValue;
                                                 }
                                             }
-
-                                            // Call API to update task
-                                            await axios.put(`${apiUrl}/tasks/${event.data.id}`, updatedTask);
-                                            console.log("Task updated:", event.data.id);
-                                        } catch (error) {
-                                            console.error("Failed to update task:", error);
-                                            // Revert change?
-                                            event.node.setDataValue(event.colDef.field as string, event.oldValue);
+                                        } else {
+                                            updatedTask[field] = event.newValue;
                                         }
-                                    }}
-                                    defaultColDef={{
-                                        sortable: true,
-                                        filter: true,
-                                        resizable: true,
-                                        editable: true,
-                                    }}
-                                    rowClassRules={{
-                                        'font-bold bg-muted/20': (params) => params.data?.is_summary === true
-                                    }}
-                                />
-                            </div>
+
+                                        // Auto-calc logic: If Duration or Start changes, update End
+                                        if (field === 'original_duration' || field === 'planned_start') {
+                                            const dur = field === 'original_duration' ? parseFloat(event.newValue) : event.data.original_duration;
+                                            const startStr = field === 'planned_start' ? event.newValue : event.data.planned_start;
+
+                                            if (dur && startStr) {
+                                                const startDate = new Date(startStr);
+                                                if (!isNaN(startDate.getTime())) {
+                                                    const endDate = new Date(startDate);
+                                                    endDate.setHours(endDate.getHours() + dur);
+                                                    updatedTask.planned_end = endDate.toISOString();
+                                                    event.node.setDataValue('planned_end', updatedTask.planned_end);
+                                                }
+                                            }
+                                        }
+
+                                        await axios.put(`${apiUrl}/tasks/${event.data.id}`, updatedTask);
+                                    } catch (error) {
+                                        console.error("Failed to update task:", error);
+                                        event.node.setDataValue(event.colDef.field as string, event.oldValue);
+                                    }
+                                }}
+                                defaultColDef={{
+                                    sortable: true,
+                                    filter: true,
+                                    resizable: true,
+                                    editable: true,
+                                    flex: 1,
+                                    minWidth: 100
+                                }}
+                                rowClassRules={{
+                                    'font-bold bg-muted/20': (params) => params.data?.is_summary === true
+                                }}
+                            />
                             {project.tasks.length === 0 && (
                                 <div className="p-12 text-center text-muted-foreground absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                     <List className="w-12 h-12 mx-auto mb-4 opacity-20" />
@@ -740,12 +774,12 @@ export default function ProjectDetailView({ projectId, onBack }: { projectId: nu
 
                     {activeTab === 'kanban' && (
                         <div className="h-[calc(100vh-250px)] min-h-[500px] border border-border shadow-sm bg-muted/10">
-                            <KanbanBoard tasks={project.tasks} onUpdateStatus={handleUpdateTaskStatus} />
+                            <KanbanBoard tasks={project.tasks} onUpdateStatus={handleUpdateTaskStatus} onEditTask={openEditPanel as any} />
                         </div>
                     )}
                     {activeTab === 'gantt' && (
                         <div className="h-[calc(100vh-250px)] min-h-[500px] border border-border shadow-sm">
-                            <GanttChart tasks={project.tasks} />
+                            <GanttChart tasks={project.tasks} onEditTask={openEditPanel as any} />
                         </div>
                     )}
                     {activeTab === 'risks' && <RiskManagement projectId={projectId} tasks={project.tasks} />}
@@ -781,51 +815,7 @@ export default function ProjectDetailView({ projectId, onBack }: { projectId: nu
 
                     {activeTab === 'reports' && (
                         <div className="h-full flex flex-col p-6 overflow-hidden">
-                            {!reportContent ? (
-                                <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg bg-muted/5">
-                                    <FileText className="w-12 h-12 text-muted-foreground mb-4" />
-                                    <h3 className="text-lg font-medium">AI Report Generator</h3>
-                                    <p className="text-sm text-muted-foreground max-w-sm text-center mt-2 mb-6">
-                                        Generate comprehensive project status reports, risk assessments, and executive summaries using our neural engine.
-                                    </p>
-                                    <button
-                                        onClick={handleGenerateReport}
-                                        disabled={generatingReport}
-                                        className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-                                    >
-                                        {generatingReport ? (
-                                            <>
-                                                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                                                Generating Analysis...
-                                            </>
-                                        ) : (
-                                            "Generate Report"
-                                        )}
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex-1 flex flex-col bg-card border border-border rounded-lg shadow-sm overflow-hidden">
-                                    <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
-                                        <h2 className="text-lg font-bold">Project Intelligence Report</h2>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => setReportContent(null)}
-                                                className="text-xs px-3 py-1.5 border border-border rounded hover:bg-muted"
-                                            >
-                                                Back
-                                            </button>
-                                            <button className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded hover:opacity-90 flex items-center gap-1">
-                                                <Download className="w-3 h-3" /> Export PDF
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto p-8 prose prose-sm max-w-none dark:prose-invert">
-                                        <div className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted-foreground">
-                                            {reportContent}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            <ReportsTab projectId={projectId} />
                         </div>
                     )}
 
@@ -892,220 +882,413 @@ export default function ProjectDetailView({ projectId, onBack }: { projectId: nu
             </div>
 
             {/* --- Slide-out Edit Panel --- */}
-            {isEditPanelOpen && (
-                <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-[1px]">
-                    <div className="w-[450px] bg-background border-l border-border shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-                            <h2 className="text-lg font-bold">Edit Task</h2>
-                            <button onClick={closeEditPanel} className="p-2 hover:bg-muted rounded-full">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-semibold uppercase text-muted-foreground">Title</label>
-                                <input
-                                    type="text"
-                                    value={editTaskData.title || ''}
-                                    onChange={(e) => setEditTaskData({ ...editTaskData, title: e.target.value })}
-                                    className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                                />
+            {
+                isEditPanelOpen && (
+                    <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-[1px]">
+                        <div className="w-[450px] bg-background border-l border-border shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300">
+                            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                                <h2 className="text-lg font-bold">Edit Task</h2>
+                                <button onClick={closeEditPanel} className="p-2 hover:bg-muted rounded-full">
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="flex-1 overflow-y-auto p-6 space-y-5">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold uppercase text-muted-foreground">WBS Code</label>
+                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Title</label>
                                     <input
                                         type="text"
-                                        value={editTaskData.wbs_code || ''}
-                                        onChange={(e) => setEditTaskData({ ...editTaskData, wbs_code: e.target.value })}
-                                        className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
+                                        value={editTaskData.title || ''}
+                                        onChange={(e) => setEditTaskData({ ...editTaskData, title: e.target.value })}
+                                        className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                                     />
                                 </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold uppercase text-muted-foreground">WBS Code</label>
+                                        <input
+                                            type="text"
+                                            value={editTaskData.wbs_code || ''}
+                                            onChange={(e) => setEditTaskData({ ...editTaskData, wbs_code: e.target.value })}
+                                            className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold uppercase text-muted-foreground">Status</label>
+                                        <select
+                                            value={editTaskData.status || 'not_started'}
+                                            onChange={(e) => setEditTaskData({ ...editTaskData, status: e.target.value })}
+                                            className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
+                                        >
+                                            <option value="not_started">Not Started</option>
+                                            <option value="in_progress">In Progress</option>
+                                            <option value="stalled">Stalled</option>
+                                            <option value="completed">Completed</option>
+                                            <option value="cancelled">Cancelled</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold uppercase text-muted-foreground">Type</label>
+                                        <select
+                                            value={editTaskData.task_type || 'task'}
+                                            onChange={(e) => setEditTaskData({ ...editTaskData, task_type: e.target.value })}
+                                            className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
+                                        >
+                                            <option value="task">Standard Task</option>
+                                            <option value="milestone">Milestone</option>
+                                            <option value="summary">Summary</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold uppercase text-muted-foreground">Discipline</label>
+                                        <select
+                                            value={editTaskData.discipline || 'General'}
+                                            onChange={(e) => setEditTaskData({ ...editTaskData, discipline: e.target.value })}
+                                            className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
+                                        >
+                                            <option value="General">General</option>
+                                            <option value="Design">Design</option>
+                                            <option value="Procurement">Procurement</option>
+                                            <option value="Construction">Construction</option>
+                                            <option value="Commissioning">Commissioning</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {editTaskData.discipline === 'Design' && (
+                                    <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-md">
+                                        <input
+                                            type="checkbox"
+                                            id="is_deliverable"
+                                            checked={editTaskData.is_deliverable || false}
+                                            onChange={(e) => setEditTaskData({ ...editTaskData, is_deliverable: e.target.checked })}
+                                            className="w-4 h-4 rounded border-primary"
+                                        />
+                                        <label htmlFor="is_deliverable" className="text-sm font-medium cursor-pointer select-none">
+                                            Mark as Deliverable (Document/Drawing)
+                                        </label>
+                                    </div>
+                                )}
+
+
+
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Status</label>
-                                    <select
-                                        value={editTaskData.status || 'not_started'}
-                                        onChange={(e) => setEditTaskData({ ...editTaskData, status: e.target.value })}
-                                        className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
-                                    >
-                                        <option value="not_started">Not Started</option>
-                                        <option value="in_progress">In Progress</option>
-                                        <option value="stalled">Stalled</option>
-                                        <option value="completed">Completed</option>
-                                        <option value="cancelled">Cancelled</option>
-                                    </select>
+                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Description</label>
+                                    <textarea
+                                        value={editTaskData.description || ''}
+                                        onChange={(e) => setEditTaskData({ ...editTaskData, description: e.target.value })}
+                                        className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm min-h-[80px]"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold uppercase text-muted-foreground">Start Date</label>
+                                        <input
+                                            type="date"
+                                            value={editTaskData.planned_start?.split('T')[0] || ''}
+                                            onChange={(e) => setEditTaskData({ ...editTaskData, planned_start: e.target.value })}
+                                            className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold uppercase text-muted-foreground">End Date</label>
+                                        <input
+                                            type="date"
+                                            value={editTaskData.planned_end?.split('T')[0] || ''}
+                                            onChange={(e) => setEditTaskData({ ...editTaskData, planned_end: e.target.value })}
+                                            className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Dependencies Section */}
+                                <div className="pt-4 border-t border-border">
+                                    <label className="text-xs font-semibold uppercase text-muted-foreground mb-3 block">Dependencies</label>
+                                    <div className="space-y-2">
+                                        {editTaskData.dependencies?.map((dep, idx) => (
+                                            <div key={idx} className="flex gap-2 items-center">
+                                                <select
+                                                    value={dep.target_id}
+                                                    onChange={(e) => {
+                                                        const newDeps = [...(editTaskData.dependencies || [])];
+                                                        newDeps[idx].target_id = parseInt(e.target.value);
+                                                        setEditTaskData({ ...editTaskData, dependencies: newDeps });
+                                                    }}
+                                                    className="flex-1 bg-muted/50 border border-border rounded px-2 py-1 text-xs"
+                                                >
+                                                    {project.tasks.filter(t => t.id !== editingTaskId).map(t => (
+                                                        <option key={t.id} value={t.id}>{t.title.substring(0, 30)}...</option>
+                                                    ))}
+                                                </select>
+                                                <select
+                                                    value={dep.relation}
+                                                    onChange={(e) => {
+                                                        const newDeps = [...(editTaskData.dependencies || [])];
+                                                        newDeps[idx].relation = e.target.value;
+                                                        setEditTaskData({ ...editTaskData, dependencies: newDeps });
+                                                    }}
+                                                    className="w-16 bg-muted/50 border border-border rounded px-2 py-1 text-xs"
+                                                >
+                                                    <option value="FS">FS</option>
+                                                    <option value="SS">SS</option>
+                                                    <option value="FF">FF</option>
+                                                    <option value="SF">SF</option>
+                                                </select>
+                                                <button
+                                                    onClick={() => {
+                                                        const newDeps = editTaskData.dependencies?.filter((_, i) => i !== idx);
+                                                        setEditTaskData({ ...editTaskData, dependencies: newDeps });
+                                                    }}
+                                                    className="text-red-500 hover:bg-red-50 p-1 rounded"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={() => {
+                                                const otherTask = project.tasks.find(t => t.id !== editingTaskId);
+                                                if (otherTask) {
+                                                    setEditTaskData({
+                                                        ...editTaskData,
+                                                        dependencies: [
+                                                            ...(editTaskData.dependencies || []),
+                                                            { target_id: otherTask.id, relation: 'FS', lag: 0 }
+                                                        ]
+                                                    });
+                                                }
+                                            }}
+                                            className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 mt-2"
+                                        >
+                                            <Plus className="w-3 h-3" /> Add Dependency
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Type</label>
-                                    <select
-                                        value={editTaskData.task_type || 'task'}
-                                        onChange={(e) => setEditTaskData({ ...editTaskData, task_type: e.target.value })}
-                                        className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
-                                    >
-                                        <option value="task">Standard Task</option>
-                                        <option value="milestone">Milestone</option>
-                                        <option value="summary">Summary</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Discipline</label>
-                                    <select
-                                        value={editTaskData.discipline || 'General'}
-                                        onChange={(e) => setEditTaskData({ ...editTaskData, discipline: e.target.value })}
-                                        className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
-                                    >
-                                        <option value="General">General</option>
-                                        <option value="Design">Design</option>
-                                        <option value="Procurement">Procurement</option>
-                                        <option value="Construction">Construction</option>
-                                        <option value="Commissioning">Commissioning</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            {editTaskData.discipline === 'Design' && (
-                                <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-md">
-                                    <input
-                                        type="checkbox"
-                                        id="is_deliverable"
-                                        checked={editTaskData.is_deliverable || false}
-                                        onChange={(e) => setEditTaskData({ ...editTaskData, is_deliverable: e.target.checked })}
-                                        className="w-4 h-4 rounded border-primary"
-                                    />
-                                    <label htmlFor="is_deliverable" className="text-sm font-medium cursor-pointer select-none">
-                                        Mark as Deliverable (Document/Drawing)
-                                    </label>
-                                </div>
-                            )}
-
-
-
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-semibold uppercase text-muted-foreground">Description</label>
-                                <textarea
-                                    value={editTaskData.description || ''}
-                                    onChange={(e) => setEditTaskData({ ...editTaskData, description: e.target.value })}
-                                    className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm min-h-[80px]"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Start Date</label>
-                                    <input
-                                        type="date"
-                                        value={editTaskData.planned_start?.split('T')[0] || ''}
-                                        onChange={(e) => setEditTaskData({ ...editTaskData, planned_start: e.target.value })}
-                                        className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold uppercase text-muted-foreground">End Date</label>
-                                    <input
-                                        type="date"
-                                        value={editTaskData.planned_end?.split('T')[0] || ''}
-                                        onChange={(e) => setEditTaskData({ ...editTaskData, planned_end: e.target.value })}
-                                        className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Dependencies Section */}
-                            <div className="pt-4 border-t border-border">
-                                <label className="text-xs font-semibold uppercase text-muted-foreground mb-3 block">Dependencies</label>
-                                <div className="space-y-2">
-                                    {editTaskData.dependencies?.map((dep, idx) => (
-                                        <div key={idx} className="flex gap-2 items-center">
-                                            <select
-                                                value={dep.target_id}
-                                                onChange={(e) => {
-                                                    const newDeps = [...(editTaskData.dependencies || [])];
-                                                    newDeps[idx].target_id = parseInt(e.target.value);
-                                                    setEditTaskData({ ...editTaskData, dependencies: newDeps });
-                                                }}
-                                                className="flex-1 bg-muted/50 border border-border rounded px-2 py-1 text-xs"
-                                            >
-                                                {project.tasks.filter(t => t.id !== editingTaskId).map(t => (
-                                                    <option key={t.id} value={t.id}>{t.title.substring(0, 30)}...</option>
-                                                ))}
-                                            </select>
-                                            <select
-                                                value={dep.relation}
-                                                onChange={(e) => {
-                                                    const newDeps = [...(editTaskData.dependencies || [])];
-                                                    newDeps[idx].relation = e.target.value;
-                                                    setEditTaskData({ ...editTaskData, dependencies: newDeps });
-                                                }}
-                                                className="w-16 bg-muted/50 border border-border rounded px-2 py-1 text-xs"
-                                            >
-                                                <option value="FS">FS</option>
-                                                <option value="SS">SS</option>
-                                                <option value="FF">FF</option>
-                                                <option value="SF">SF</option>
-                                            </select>
-                                            <button
-                                                onClick={() => {
-                                                    const newDeps = editTaskData.dependencies?.filter((_, i) => i !== idx);
-                                                    setEditTaskData({ ...editTaskData, dependencies: newDeps });
-                                                }}
-                                                className="text-red-500 hover:bg-red-50 p-1 rounded"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    ))}
+                            <div className="p-6 border-t border-border bg-muted/20 flex items-center justify-between">
+                                <button
+                                    onClick={() => { if (editingTaskId) handleDeleteTask(editingTaskId); }}
+                                    className="flex items-center text-destructive hover:bg-destructive/10 hover:text-destructive-foreground px-3 py-2 rounded-md transition-colors text-sm font-medium"
+                                >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete Task
+                                </button>
+                                <div className="flex gap-3">
                                     <button
-                                        onClick={() => {
-                                            const otherTask = project.tasks.find(t => t.id !== editingTaskId);
-                                            if (otherTask) {
-                                                setEditTaskData({
-                                                    ...editTaskData,
-                                                    dependencies: [
-                                                        ...(editTaskData.dependencies || []),
-                                                        { target_id: otherTask.id, relation: 'FS', lag: 0 }
-                                                    ]
-                                                });
-                                            }
-                                        }}
-                                        className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 mt-2"
+                                        onClick={closeEditPanel}
+                                        className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
                                     >
-                                        <Plus className="w-3 h-3" /> Add Dependency
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleSaveTask}
+                                        className="px-6 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md shadow-sm hover:opacity-90 transition-all transform active:scale-95"
+                                    >
+                                        Save Changes
                                     </button>
                                 </div>
                             </div>
                         </div>
-
-                        <div className="p-6 border-t border-border bg-muted/20 flex items-center justify-between">
-                            <button
-                                onClick={() => { if (editingTaskId) handleDeleteTask(editingTaskId); }}
-                                className="flex items-center text-destructive hover:bg-destructive/10 hover:text-destructive-foreground px-3 py-2 rounded-md transition-colors text-sm font-medium"
-                            >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete Task
-                            </button>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={closeEditPanel}
-                                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleSaveTask}
-                                    className="px-6 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md shadow-sm hover:opacity-90 transition-all transform active:scale-95"
-                                >
-                                    Save Changes
-                                </button>
-                            </div>
-                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
+
+// --- Reports Component ---
+
+interface ProjectReport {
+    id: number;
+    project_id: number;
+    language: string;
+    report_type: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    content?: string;
+    error_message?: string;
+    created_at: string;
+}
+
+function ReportsTab({ projectId }: { projectId: number }) {
+    const [reports, setReports] = useState<ProjectReport[]>([]);
+    const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
+    const [generating, setGenerating] = useState(false);
+
+    const fetchReports = React.useCallback(async () => {
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
+            const res = await axios.get(`${apiUrl}/reports/${projectId}/reports`);
+            setReports(res.data);
+
+            // Auto-select newest if none selected
+            if (!selectedReportId && res.data.length > 0) {
+                setSelectedReportId(res.data[0].id);
+            }
+        } catch (err) {
+            console.error("Failed to fetch reports", err);
+        }
+    }, [projectId, selectedReportId]);
+
+    // Initial fetch
+    useEffect(() => {
+        fetchReports();
+    }, [fetchReports]);
+
+    // Polling for pending reports
+    useEffect(() => {
+        const hasPending = reports.some(r => r.status === 'pending' || r.status === 'processing');
+        if (hasPending || generating) {
+            const interval = setInterval(fetchReports, 3000); // Poll every 3s
+            return () => clearInterval(interval);
+        }
+    }, [reports, generating, fetchReports]);
+
+    const handleGenerate = async (lang: string) => {
+        setGenerating(true);
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
+            await axios.post(`${apiUrl}/reports/${projectId}/generate-summary`, null, {
+                params: { type: 'weekly', language: lang }
+            });
+            // Immediate fetch to show pending state
+            await fetchReports();
+        } catch (err) {
+            console.error("Failed to start generation", err);
+            alert("Failed to start report generation.");
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    const selectedReport = reports.find(r => r.id === selectedReportId) || reports[0];
+
+    return (
+        <div className="flex h-full gap-6">
+            {/* Sidebar List */}
+            <div className="w-64 flex-shrink-0 flex flex-col border-r border-border pr-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">History</h3>
+                    <div className="flex gap-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleGenerate('en')}
+                            disabled={generating}
+                            title="Generate English Report"
+                            className="h-7 text-xs px-2"
+                        >
+                            + EN
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleGenerate('zh')}
+                            disabled={generating}
+                            title="生成中文报告"
+                            className="h-7 text-xs px-2"
+                        >
+                            + 中文
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                    {reports.map(report => (
+                        <button
+                            key={report.id}
+                            onClick={() => setSelectedReportId(report.id)}
+                            className={cn(
+                                "w-full text-left p-3 rounded-md text-sm border transition-all",
+                                selectedReportId === report.id
+                                    ? "bg-primary/10 border-primary text-primary"
+                                    : "bg-card border-border hover:border-primary/50"
+                            )}
+                        >
+                            <div className="flex justify-between items-start mb-1">
+                                <span className={cn("text-[10px] font-bold uppercase px-1.5 py-0.5 rounded",
+                                    report.language === 'zh' ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
+                                )}>
+                                    {report.language === 'zh' ? 'CN' : 'EN'}
+                                </span>
+                                <ConfigStatusBadge status={report.status} />
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                                {new Date(report.created_at).toLocaleString()}
+                            </div>
+                        </button>
+                    ))}
+                    {reports.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground text-xs">
+                            No reports generated yet.
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col bg-card border border-border rounded-lg shadow-sm overflow-hidden h-full">
+                {selectedReport ? (
+                    <>
+                        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-muted/30">
+                            <div className="flex items-center gap-3">
+                                <FileText className="w-4 h-4 text-primary" />
+                                <span className="font-medium text-sm">
+                                    Project Report ({selectedReport.language === 'zh' ? 'Chinese' : 'English'})
+                                    - {new Date(selectedReport.created_at).toLocaleString()}
+                                </span>
+                            </div>
+                            <Button variant="ghost" size="sm" className="h-7">
+                                <Download className="w-4 h-4 mr-2" />
+                                Export PDF
+                            </Button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-8 bg-white/50 dark:bg-black/20">
+                            {selectedReport.status === 'completed' && selectedReport.content ? (
+                                <div className="prose prose-sm dark:prose-invert max-w-none">
+                                    <ReactMarkdown>{selectedReport.content}</ReactMarkdown>
+                                </div>
+                            ) : selectedReport.status === 'failed' ? (
+                                <div className="text-destructive p-4 border border-destructive/20 rounded-md bg-destructive/5">
+                                    <h4 className="font-bold mb-1">Generation Failed</h4>
+                                    <p className="text-sm">{selectedReport.error_message}</p>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-64 opacity-50">
+                                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                                    <p className="text-sm font-medium animate-pulse">
+                                        {selectedReport.status === 'pending' ? 'Queued...' : 'Generating Report...'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                        <FileText className="w-12 h-12 mb-4 opacity-20" />
+                        <p>Select a report to view details</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+function ConfigStatusBadge({ status }: { status: string }) {
+    const variants: Record<string, "default" | "secondary" | "destructive" | "outline" | "success" | "warning"> = {
+        completed: "success",
+        processing: "warning",
+        pending: "secondary",
+        failed: "destructive",
+    };
+    return (
+        <Badge variant={variants[status] || "outline"} className="text-[10px] px-1.5 h-4">
+            {status}
+        </Badge>
+    );
+};

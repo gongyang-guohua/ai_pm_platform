@@ -3,8 +3,9 @@ from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
 import sys
 import asyncio
+import selectors
 
-# Fix for asyncpg on Windows
+# Fix for psycopg on Windows: use SelectorEventLoop instead of ProactorEventLoop
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
