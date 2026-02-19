@@ -77,40 +77,46 @@ export default function GanttChart({ tasks, onEditTask }: { tasks: ProjectTask[]
         const level = t.outline_level || 1;
 
         if (isDark) {
-            // DARK THEME PALETTE (Background is Dark)
-            // Bars should be lighter to stand out
-            // Progress (Filled) should be distinct from Planned (Empty/Background of bar)
+            // DARK THEME PALETTE
+            // Background is Dark (gray-900 etc)
+            // Bars should be lighter / distinct
 
             if (t.task_type === 'milestone') {
-                // Milestones: Gold/Bright
-                progressColor = '#fcd34d'; // Amber-300
-                backgroundColor = '#fcd34d';
-                backgroundSelectedColor = '#fbbf24';
+                // Gold
+                progressColor = '#FBBF24'; // amber-400
+                backgroundColor = '#F59E0B'; // amber-500
+                backgroundSelectedColor = '#D97706';
             } else if (t.is_summary) {
-                // Summary: Bright/White Bracket
-                progressColor = '#e5e7eb'; // Gray-200
-                backgroundColor = '#e5e7eb';
-                backgroundSelectedColor = '#ffffff';
+                // Bracket style usually, but here bar.
+                // Summary: Dark grey but visible
+                progressColor = '#A1A1AA'; // zinc-400
+                backgroundColor = '#52525B'; // zinc-600
+                backgroundSelectedColor = '#71717A';
             } else if (t.status === 'completed') {
-                progressColor = '#10b981'; // Emerald-500 (Keep green as it's universal)
-                backgroundColor = '#064e3b'; // Dark Emerald Background
-                backgroundSelectedColor = '#065f46';
+                // Green, but maybe muted in dark mode? No, bright is good.
+                progressColor = '#34D399'; // emerald-400
+                backgroundColor = '#059669'; // emerald-600
+                backgroundSelectedColor = '#10B981';
             } else {
-                // Standard Tasks: Grayscale
-                // Planned (Bar Background): Darker Gray
-                // Progress (Filled): Lighter/White
+                // Standard Task
+                // Bar Background (Planned): Dark Grey/Blueish? 
+                // We want "Progress" to be Light/Pale Grey as requested: "进度条/里程表，为亮色或淡灰"
 
-                // Level differentiation (Subtle)
-                backgroundColor = level === 1 ? '#374151' : level === 2 ? '#4b5563' : '#6b7280'; // Bar BG
-                backgroundSelectedColor = level === 1 ? '#4b5563' : level === 2 ? '#6b7280' : '#9ca3af';
-                progressColor = '#e5e7eb'; // Progress is bright
+                // Planned Period (Background of the bar):
+                backgroundColor = '#4B5563'; // gray-600
+
+                // Actual Progress (Foreground of the bar):
+                progressColor = '#E5E7EB'; // gray-200 (Light Grey)
+
+                backgroundSelectedColor = '#6B7280'; // gray-500
             }
-        } else {
-            // LIGHT THEME PALETTE (Background is Light)
-            // Bars should be darker
 
+        } else {
+            // LIGHT THEME
+            // Background Light
+            // Bars Darker
             if (t.task_type === 'milestone') {
-                progressColor = '#000000'; // Black
+                progressColor = '#000000';
                 backgroundColor = '#000000';
                 backgroundSelectedColor = '#333333';
             } else if (t.is_summary) {
@@ -118,17 +124,16 @@ export default function GanttChart({ tasks, onEditTask }: { tasks: ProjectTask[]
                 backgroundColor = '#000000';
                 backgroundSelectedColor = '#333333';
             } else if (t.status === 'completed') {
-                progressColor = '#059669'; // Emerald-600
-                backgroundColor = '#d1fae5'; // Light Emerald
-                backgroundSelectedColor = '#a7f3d0';
+                progressColor = '#10B981';
+                backgroundColor = '#D1FAE5';
+                backgroundSelectedColor = '#A7F3D0';
             } else {
-                // Standard Tasks: Grayscale inverse
-                // Planned (Bar Background): Light Gray
-                // Progress (Filled): Dark/Black
-
-                backgroundColor = level === 1 ? '#e5e7eb' : level === 2 ? '#d1d5db' : '#9ca3af';
-                backgroundSelectedColor = level === 1 ? '#d1d5db' : level === 2 ? '#9ca3af' : '#6b7280';
-                progressColor = '#1f2937'; // Progress is dark
+                // Standard: Dark bar on light bg
+                // Progress: Dark
+                // Planned: Light Grey
+                backgroundColor = '#E5E7EB'; // gray-200
+                progressColor = '#374151'; // gray-700
+                backgroundSelectedColor = '#9CA3AF';
             }
         }
 
@@ -314,9 +319,50 @@ export default function GanttChart({ tasks, onEditTask }: { tasks: ProjectTask[]
                     }
                     
                     /* Ensure rects that act as task backgrounds are consistent */
-                    .gantt-container rect {
-                        shape-rendering: crispEdges;
-                    }
+                /* Force Dark Background for Gantt Container */
+                .gantt-container {
+                    background-color: #09090b !important; /* zinc-950 */
+                    color: #fafafa !important;
+                }
+
+                /* Rows - Dark */
+                .gantt-container ._3af_6 { 
+                    background-color: #09090b !important;
+                    color: #fafafa !important;
+                    border-bottom: 1px solid #27272a !important; /* zinc-800 */
+                    border-right: 1px solid #27272a !important;
+                }
+
+                /* Header - Slightly Lighter Dark */
+                .gantt-container ._2uS_8 { 
+                    background-color: #18181b !important; /* zinc-900 */
+                    color: #a1a1aa !important; /* zinc-400 */
+                    border-bottom: 1px solid #27272a !important;
+                    border-right: 1px solid #27272a !important;
+                }
+
+                /* Grid Lines - Visible */
+                .gantt-container ._1_h_6 { 
+                    fill: #27272a !important;
+                    opacity: 1 !important;
+                }
+                
+                /* Vertical Lines */
+                .gantt-container line {
+                    stroke: #27272a !important;
+                    stroke-opacity: 1 !important;
+                }
+                
+                /* Text Labels */
+                .gantt-container text {
+                    fill: #e4e4e7 !important; /* zinc-200 */
+                }
+                
+                /* Tasks Background area in Chart */
+                .gantt-container ._2rB_5, 
+                .gantt-container ._3_h_6 {
+                    fill: #09090b !important;
+                }
                 `}</style>
                 <Gantt
                     tasks={ganttTasks}

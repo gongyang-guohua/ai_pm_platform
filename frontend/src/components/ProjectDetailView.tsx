@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { ArrowLeft, Calendar, FileText, LayoutList, GripHorizontal, List, CheckCircle2, Circle, AlertCircle, Clock, CalendarDays, ChevronRight, MoreHorizontal, Pencil, Trash2, Plus, GripVertical, Play, Kanban as KanbanIcon, GanttChartSquare, Network, ShieldAlert, Package, Calculator, Save, X, Filter, Download, Settings } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, LayoutList, GripHorizontal, List, CheckCircle2, Circle, AlertCircle, Clock, CalendarDays, ChevronRight, MoreHorizontal, Pencil, Trash2, Plus, GripVertical, Play, Kanban as KanbanIcon, GanttChartSquare, Network, ShieldAlert, Package, Calculator, Save, X, Filter, Download, Settings, StopCircle } from 'lucide-react';
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
@@ -328,7 +328,8 @@ export default function ProjectDetailView({ projectId, onBack }: { projectId: nu
             dependencies: task.dependencies || [],
             notes: task.notes,
             is_deliverable: task.is_deliverable,
-            discipline: task.discipline
+            discipline: task.discipline,
+            original_duration: task.original_duration
         });
         setIsEditPanelOpen(true);
     }, []);
@@ -985,13 +986,54 @@ export default function ProjectDetailView({ projectId, onBack }: { projectId: nu
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-3 gap-4">
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-semibold uppercase text-muted-foreground">Start Date</label>
                                         <input
                                             type="date"
                                             value={editTaskData.planned_start?.split('T')[0] || ''}
-                                            onChange={(e) => setEditTaskData({ ...editTaskData, planned_start: e.target.value })}
+                                            onChange={(e) => {
+                                                const newStart = e.target.value;
+                                                const updates: any = { planned_start: newStart };
+
+                                                // Auto-calc End if Duration exists
+                                                if (newStart && editTaskData.original_duration) {
+                                                    const startDate = new Date(newStart);
+                                                    if (!isNaN(startDate.getTime())) {
+                                                        const endDate = new Date(startDate);
+                                                        endDate.setHours(endDate.getHours() + (editTaskData.original_duration * 24)); // Assumption: duration is days? No, standard is hours usually, but let's check. 
+                                                        // In AgGrid example: endDate.setHours(endDate.getHours() + dur); which implies HOURS.
+                                                        // PLEASE NOTE: P6/MS Project usually use Days for duration. 
+                                                        // Let's stick to HOURS as per the code I saw earlier (original_duration header says "Dur (h)").
+                                                        endDate.setHours(endDate.getHours() + editTaskData.original_duration);
+                                                        updates.planned_end = endDate.toISOString();
+                                                    }
+                                                }
+                                                setEditTaskData({ ...editTaskData, ...updates });
+                                            }}
+                                            className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold uppercase text-muted-foreground">Duration (h)</label>
+                                        <input
+                                            type="number"
+                                            value={editTaskData.original_duration || ''}
+                                            onChange={(e) => {
+                                                const newDur = parseFloat(e.target.value);
+                                                const updates: any = { original_duration: newDur };
+
+                                                // Auto-calc End if Start exists
+                                                if (editTaskData.planned_start && !isNaN(newDur)) {
+                                                    const startDate = new Date(editTaskData.planned_start);
+                                                    if (!isNaN(startDate.getTime())) {
+                                                        const endDate = new Date(startDate);
+                                                        endDate.setHours(endDate.getHours() + newDur);
+                                                        updates.planned_end = endDate.toISOString();
+                                                    }
+                                                }
+                                                setEditTaskData({ ...editTaskData, ...updates });
+                                            }}
                                             className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
                                         />
                                     </div>
@@ -1000,7 +1042,22 @@ export default function ProjectDetailView({ projectId, onBack }: { projectId: nu
                                         <input
                                             type="date"
                                             value={editTaskData.planned_end?.split('T')[0] || ''}
-                                            onChange={(e) => setEditTaskData({ ...editTaskData, planned_end: e.target.value })}
+                                            onChange={(e) => {
+                                                const newEnd = e.target.value;
+                                                const updates: any = { planned_end: newEnd };
+
+                                                // Auto-calc Duration if Start exists
+                                                if (editTaskData.planned_start && newEnd) {
+                                                    const startDate = new Date(editTaskData.planned_start);
+                                                    const endDate = new Date(newEnd);
+                                                    if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                                                        const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+                                                        const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
+                                                        updates.original_duration = diffHours;
+                                                    }
+                                                }
+                                                setEditTaskData({ ...editTaskData, ...updates });
+                                            }}
                                             className="w-full px-3 py-2 bg-muted/50 border border-border rounded-md text-sm"
                                         />
                                     </div>
@@ -1162,6 +1219,25 @@ function ReportsTab({ projectId }: { projectId: number }) {
             console.error("Failed to start generation", err);
             alert("Failed to start report generation.");
         } finally {
+            setGenerating(false);
+        }
+    };
+
+    const handleStop = async () => {
+        if (!selectedReportId && !generating) return;
+        // Logic: if we have a pending report ID (we might need to track the current generating report ID separately or infer it)
+        // Since we re-fetch reports, we can find the pending one.
+        const pendingReport = reports.find(r => r.status === 'pending' || r.status === 'processing');
+        if (pendingReport) {
+            try {
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
+                await axios.post(`${apiUrl}/reports/${projectId}/reports/${pendingReport.id}/cancel`);
+                setGenerating(false); // Force stop local spinner
+                fetchReports(); // Refresh status
+            } catch (err) {
+                console.error("Failed to cancel report", err);
+            }
+        } else {
             setGenerating(false);
         }
     };
